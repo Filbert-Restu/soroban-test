@@ -1,99 +1,99 @@
 # 🏦 Soroban Escrow Contract
 
-> Sistem rekening bersama (escrow) on-chain berbasis **Stellar Soroban** — transparan, trustless, dan aman tanpa perantara terpusat.
+> An on-chain escrow system built on **Stellar Soroban** — transparent, trustless, and secure without a centralized intermediary.
 
 ---
 
-## 📋 Daftar Isi
+## 📋 Table of Contents
 
-- [Tentang Proyek](#tentang-proyek)
-- [Fitur Utama](#fitur-utama)
-- [Arsitektur & Siklus Hidup](#arsitektur--siklus-hidup)
-- [Struktur Data](#struktur-data)
-- [Fungsi Contract](#fungsi-contract)
-- [Instalasi & Setup](#instalasi--setup)
-- [Cara Deploy](#cara-deploy)
-- [Menjalankan Test](#menjalankan-test)
-- [Contoh Penggunaan CLI](#contoh-penggunaan-cli)
-- [Keamanan](#keamanan)
+- [About the Project](#about-the-project)
+- [Key Features](#key-features)
+- [Architecture & Lifecycle](#architecture--lifecycle)
+- [Data Structures](#data-structures)
+- [Contract Functions](#contract-functions)
+- [Installation & Setup](#installation--setup)
+- [How to Deploy](#how-to-deploy)
+- [Running Tests](#running-tests)
+- [CLI Usage Examples](#cli-usage-examples)
+- [Security](#security)
 - [Roadmap](#roadmap)
 
 ---
 
-## Tentang Proyek
+## About the Project
 
-Contract ini memungkinkan dua pihak (buyer dan seller) untuk melakukan transaksi dengan penjamin otomatis berupa smart contract. Dana dikunci di dalam contract hingga kondisi terpenuhi, menghilangkan risiko penipuan dari salah satu pihak.
+This contract enables two parties (buyer and seller) to transact with an automatic smart contract guarantor. Funds are locked inside the contract until conditions are met, eliminating fraud risk from either party.
 
-**Use Case nyata:**
-- Pembayaran jasa freelance (buyer bayar hanya jika pekerjaan selesai)
-- Transaksi jual beli barang digital/fisik
-- Layanan sewa dengan deposit
-- Crowdfund bersyarat
-
----
-
-## Fitur Utama
-
-| Fitur | Deskripsi |
-|-------|-----------|
-| 🔒 **Dana Terkunci** | Token dikunci di contract, tidak bisa diambil sembarangan |
-| ⚖️ **Sistem Arbiter** | Pihak ketiga netral memutuskan jika ada sengketa |
-| ⏰ **Auto-Refund** | Buyer bisa klaim refund otomatis jika deadline terlewat |
-| 🏷️ **Multi-Token** | Mendukung semua token SAC (XLM, USDC, dsb.) |
-| 🔍 **Query Fleksibel** | Filter escrow by buyer, seller, atau status sengketa |
-| 🛡️ **Auth Ketat** | Setiap aksi divalidasi identitas pemanggil via `require_auth()` |
+**Real-world use cases:**
+- Freelance service payments (buyer pays only when work is complete)
+- Digital/physical goods transactions
+- Rental services with deposits
+- Conditional crowdfunding
 
 ---
 
-## Arsitektur & Siklus Hidup
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔒 **Locked Funds** | Tokens are locked in the contract and cannot be withdrawn arbitrarily |
+| ⚖️ **Arbiter System** | A neutral third party decides in the event of a dispute |
+| ⏰ **Auto-Refund** | Buyer can claim an automatic refund if the deadline is missed |
+| 🏷️ **Multi-Token** | Supports all SAC tokens (XLM, USDC, etc.) |
+| 🔍 **Flexible Queries** | Filter escrows by buyer, seller, or dispute status |
+| 🛡️ **Strict Auth** | Every action validates the caller's identity via `require_auth()` |
+
+---
+
+## Architecture & Lifecycle
 
 ```
                         ┌─────────────────┐
-                        │   buat_escrow   │
+                        │  create_escrow  │
                         │    (Buyer)      │
                         └────────┬────────┘
                                  │
                                  ▼
                         ┌─────────────────┐
-                        │    MENUNGGU     │
+                        │     PENDING     │
                         └────────┬────────┘
-                                 │ danai_escrow (Buyer)
+                                 │ fund_escrow (Buyer)
                                  ▼
                         ┌─────────────────┐
-                  ┌────►│    DIDANAI      │◄────────────────┐
+                  ┌────►│     FUNDED      │◄────────────────┐
                   │     └────────┬────────┘                 │
                   │              │                          │
           deadline│      ┌───────┴────────┐                 │
-           lewat  │      │                │ ajukan_sengketa  │
+           passed │      │                │ raise_dispute   │
                   │      ▼                ▼  (Buyer/Seller) │
-                  │  lepas_dana     kembalikan_dana         │
+                  │  release_funds  return_funds            │
                   │  (Buyer /       (Seller / Arbiter)      │
                   │   Arbiter)                              │
                   │      │                │                  │
                   │      ▼                ▼                  │
-                  │  ┌────────┐    ┌──────────────┐  ┌────────────┐
-                  │  │SELESAI │    │ DIKEMBALIKAN │  │ SENGKETA  │
-                  │  └────────┘    └──────────────┘  └─────┬──────┘
+                  │  ┌──────────┐  ┌──────────────┐  ┌───────────┐
+                  │  │COMPLETED │  │   REFUNDED   │  │ DISPUTED  │
+                  │  └──────────┘  └──────────────┘  └─────┬─────┘
                   │                                         │
-                  │                            Arbiter memutuskan:
-                  │                            lepas_dana / kembalikan_dana
+                  │                            Arbiter decides:
+                  │                            release_funds / return_funds
                   │                                         │
                   └─────────────────────────────────────────┘
 ```
 
 ---
 
-## Struktur Data
+## Data Structures
 
-### `StatusEscrow` (Enum)
+### `EscrowStatus` (Enum)
 
 ```rust
-pub enum StatusEscrow {
-    Menunggu,      // Escrow dibuat, belum didanai
-    Didanai,       // Dana sudah dikunci di contract
-    Selesai,       // Dana berhasil dilepas ke seller
-    Dikembalikan,  // Dana dikembalikan ke buyer
-    Sengketa,      // Dalam proses resolusi arbiter
+pub enum EscrowStatus {
+    Pending,    // Escrow created, not yet funded
+    Funded,     // Funds locked in the contract
+    Completed,  // Funds successfully released to seller
+    Refunded,   // Funds returned to buyer
+    Disputed,   // Under arbiter resolution process
 }
 ```
 
@@ -101,105 +101,105 @@ pub enum StatusEscrow {
 
 ```rust
 pub struct Escrow {
-    pub id: u64,            // ID unik auto-increment
-    pub buyer: Address,     // Alamat pembeli
-    pub seller: Address,    // Alamat penjual
-    pub arbiter: Address,   // Alamat arbiter (pihak netral)
-    pub token: Address,     // Alamat kontrak token (SAC)
-    pub jumlah: i128,       // Jumlah dalam satuan terkecil token
-    pub deskripsi: String,  // Keterangan transaksi
-    pub deadline: u64,      // Timestamp UNIX batas waktu
-    pub status: StatusEscrow,
+    pub id: u64,             // Unique auto-increment ID
+    pub buyer: Address,      // Buyer's address
+    pub seller: Address,     // Seller's address
+    pub arbiter: Address,    // Arbiter's address (neutral party)
+    pub token: Address,      // Token contract address (SAC)
+    pub amount: i128,        // Amount in smallest token unit
+    pub description: String, // Transaction description
+    pub deadline: u64,       // UNIX timestamp deadline
+    pub status: EscrowStatus,
 }
 ```
 
 ---
 
-## Fungsi Contract
+## Contract Functions
 
 ### Write Functions
 
-#### `buat_escrow` → `u64`
-Membuat escrow baru. Dana belum ditransfer di tahap ini.
+#### `create_escrow` → `u64`
+Creates a new escrow. Funds are not transferred at this stage.
 ```
-Parameter:
-  buyer     : Address   — Harus memanggil fungsi ini (require_auth)
-  seller    : Address   — Penerima dana jika transaksi sukses
-  arbiter   : Address   — Pemutus sengketa jika ada perselisihan
-  token     : Address   — Alamat token SAC yang digunakan
-  jumlah    : i128      — Harus > 0
-  deskripsi : String    — Keterangan transaksi
-  deadline  : u64       — Harus di masa depan (> ledger timestamp saat ini)
+Parameters:
+  buyer       : Address — Must call this function (require_auth)
+  seller      : Address — Fund recipient if transaction succeeds
+  arbiter     : Address — Dispute resolver if disagreement arises
+  token       : Address — SAC token contract address to use
+  amount      : i128    — Must be > 0
+  description : String  — Transaction description
+  deadline    : u64     — Must be in the future (> current ledger timestamp)
 
-Return: ID escrow yang baru dibuat
-```
-
-#### `danai_escrow` → `String`
-Buyer mentransfer dana ke contract. Status: Menunggu → Didanai.
-```
-Parameter:
-  id : u64 — ID escrow yang akan didanai
-
-Validasi:
-  - Status harus Menunggu
-  - Deadline belum lewat
-  - Buyer harus sudah approve token allowance ke contract
+Returns: Newly created escrow ID
 ```
 
-#### `lepas_dana` → `String`
-Dana dikirim ke seller. Status: Didanai/Sengketa → Selesai.
+#### `fund_escrow` → `String`
+Buyer transfers funds to the contract. Status: Pending → Funded.
 ```
-Parameter:
-  id     : u64     — ID escrow
-  caller : Address — Harus buyer atau arbiter
+Parameters:
+  id : u64 — ID of the escrow to fund
+
+Validations:
+  - Status must be Pending
+  - Deadline must not have passed
+  - Buyer must have already approved token allowance to the contract
 ```
 
-#### `kembalikan_dana` → `String`
-Dana dikembalikan ke buyer. Status: Didanai/Sengketa → Dikembalikan.
+#### `release_funds` → `String`
+Funds are sent to the seller. Status: Funded/Disputed → Completed.
 ```
-Parameter:
-  id     : u64     — ID escrow
-  caller : Address — Harus seller atau arbiter
-```
-
-#### `ajukan_sengketa` → `String`
-Eskalasi ke arbiter. Status: Didanai → Sengketa.
-```
-Parameter:
-  id     : u64     — ID escrow
-  caller : Address — Harus buyer atau seller
+Parameters:
+  id     : u64     — Escrow ID
+  caller : Address — Must be buyer or arbiter
 ```
 
-#### `klaim_refund_deadline` → `String`
-Buyer klaim refund otomatis setelah deadline lewat.
+#### `return_funds` → `String`
+Funds are returned to the buyer. Status: Funded/Disputed → Refunded.
 ```
-Parameter:
-  id : u64 — ID escrow (status harus Didanai, deadline sudah lewat)
+Parameters:
+  id     : u64     — Escrow ID
+  caller : Address — Must be seller or arbiter
+```
+
+#### `raise_dispute` → `String`
+Escalates to the arbiter. Status: Funded → Disputed.
+```
+Parameters:
+  id     : u64     — Escrow ID
+  caller : Address — Must be buyer or seller
+```
+
+#### `claim_deadline_refund` → `String`
+Buyer claims an automatic refund after the deadline has passed.
+```
+Parameters:
+  id : u64 — Escrow ID (status must be Funded, deadline must have passed)
 ```
 
 ---
 
 ### Read Functions
 
-| Fungsi | Return | Deskripsi |
-|--------|--------|-----------|
-| `get_escrow(id)` | `Option<Escrow>` | Detail satu escrow |
-| `get_semua_escrow()` | `Vec<Escrow>` | Semua escrow |
-| `get_escrow_by_buyer(addr)` | `Vec<Escrow>` | Filter by buyer |
-| `get_escrow_by_seller(addr)` | `Vec<Escrow>` | Filter by seller |
-| `get_escrow_sengketa()` | `Vec<Escrow>` | Hanya yang berstatus Sengketa |
+| Function | Return | Description |
+|----------|--------|-------------|
+| `get_escrow(id)` | `Option<Escrow>` | Details of a single escrow |
+| `get_all_escrows()` | `Vec<Escrow>` | All escrows |
+| `get_escrows_by_buyer(addr)` | `Vec<Escrow>` | Filter by buyer |
+| `get_escrows_by_seller(addr)` | `Vec<Escrow>` | Filter by seller |
+| `get_disputed_escrows()` | `Vec<Escrow>` | Only those with Disputed status |
 
 ---
 
-## Instalasi & Setup
+## Installation & Setup
 
-### Prasyarat
+### Prerequisites
 
 ```bash
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Tambahkan target WebAssembly
+# Add WebAssembly target
 rustup target add wasm32-unknown-unknown
 
 # Install Stellar CLI
@@ -216,14 +216,14 @@ cd soroban-escrow
 cargo build --target wasm32-unknown-unknown --release
 ```
 
-File `.wasm` akan tersedia di:
+The `.wasm` file will be available at:
 ```
 target/wasm32-unknown-unknown/release/soroban_escrow.wasm
 ```
 
 ---
 
-## Cara Deploy
+## How to Deploy
 
 ### 1. Setup Network (Testnet)
 
@@ -233,13 +233,13 @@ stellar network add testnet \
   --network-passphrase "Test SDF Network ; September 2015"
 ```
 
-### 2. Buat & Fund Akun
+### 2. Create & Fund Account
 
 ```bash
-# Generate keypair baru
+# Generate a new keypair
 stellar keys generate --global mywallet --network testnet
 
-# Cek alamat
+# Check address
 stellar keys address mywallet
 
 # Fund via Friendbot (testnet only)
@@ -255,79 +255,79 @@ stellar contract deploy \
   --network testnet
 ```
 
-Simpan **Contract ID** yang dikembalikan.
+Save the **Contract ID** that is returned.
 
 ---
 
-## Menjalankan Test
+## Running Tests
 
 ```bash
-# Jalankan semua test
+# Run all tests
 cargo test
 
-# Dengan output detail
+# With detailed output
 cargo test -- --nocapture
 
-# Test spesifik
-cargo test test_alur_sukses -- --nocapture
+# Specific test
+cargo test test_success_flow -- --nocapture
 ```
 
-### Skenario Test yang Ada
+### Available Test Scenarios
 
 ```
-✅ test_buat_escrow             — Membuat escrow & validasi data
-✅ test_alur_sukses             — Buat → Danai → Lepas dana ke seller
-✅ test_alur_sengketa_refund    — Sengketa → Arbiter refund ke buyer
-✅ test_alur_sengketa_ke_seller — Sengketa → Arbiter bayar ke seller
-✅ test_klaim_refund_deadline   — Auto-refund setelah deadline
-✅ test_query_filter            — Filter escrow by buyer/seller/status
+✅ test_create_escrow           — Create escrow & validate data
+✅ test_success_flow            — Create → Fund → Release funds to seller
+✅ test_dispute_refund_flow     — Dispute → Arbiter refunds to buyer
+✅ test_dispute_to_seller_flow  — Dispute → Arbiter pays to seller
+✅ test_claim_deadline_refund   — Auto-refund after deadline
+✅ test_query_filter            — Filter escrows by buyer/seller/status
 ```
 
 ---
 
-## Contoh Penggunaan CLI
+## CLI Usage Examples
 
-### Buat Escrow
+### Create Escrow
 
 ```bash
 stellar contract invoke \
   --id <CONTRACT_ID> \
   --source buyer_wallet \
   --network testnet \
-  -- buat_escrow \
+  -- create_escrow \
   --buyer <BUYER_ADDRESS> \
   --seller <SELLER_ADDRESS> \
   --arbiter <ARBITER_ADDRESS> \
   --token <TOKEN_CONTRACT_ID> \
-  --jumlah 100000000 \
-  --deskripsi "Pembayaran jasa desain logo" \
+  --amount 100000000 \
+  --description "Payment for logo design service" \
   --deadline 1800000000
 ```
 
-### Danai Escrow
+### Fund Escrow
 
 ```bash
 stellar contract invoke \
   --id <CONTRACT_ID> \
   --source buyer_wallet \
   --network testnet \
-  -- danai_escrow \
+  -- fund_escrow \
   --id 1
 ```
 
-### Lepas Dana (Buyer konfirmasi)
+### Release Funds (Buyer confirms)
 
 ```bash
 stellar contract invoke \
   --id <CONTRACT_ID> \
   --source buyer_wallet \
   --network testnet \
-  -- lepas_dana \
+  -- release_funds \
   --id 1 \
   --caller <BUYER_ADDRESS>
 ```
 
-### Cek Status Escrow
+### Check Escrow Status
 
 ```bash
 stellar contract invoke \
@@ -340,39 +340,40 @@ stellar contract invoke \
 
 ---
 
-## Keamanan
+## Security
 
-### Yang Sudah Diimplementasi
+### Already Implemented
 
-- **`require_auth()`** — Setiap fungsi write memvalidasi identitas pemanggil
-- **State Machine** — Transisi status divalidasi ketat; tidak bisa skip state
-- **Deadline Guard** — Dana tidak bisa dikunci pada escrow yang sudah kedaluwarsa
-- **Role Separation** — Buyer, seller, dan arbiter masing-masing punya hak berbeda
+- **`require_auth()`** — Every write function validates the caller's identity
+- **State Machine** — Status transitions are strictly validated; states cannot be skipped
+- **Deadline Guard** — Funds cannot be locked into an expired escrow
+- **Role Separation** — Buyer, seller, and arbiter each have distinct permissions
 
-### Catatan Penting
+### Important Notes
 
-> ⚠️ **Arbiter adalah single point of trust.** Pilih arbiter yang terpercaya dan netral. Pertimbangkan menggunakan multisig atau DAO untuk kasus nilai tinggi.
+> ⚠️ **The arbiter is a single point of trust.** Choose a trusted and neutral arbiter. Consider using multisig or a DAO for high-value cases.
 
-> ⚠️ **Contract belum diaudit.** Lakukan security audit sebelum digunakan di mainnet dengan dana nyata.
+> ⚠️ **Contract has not been audited.** Conduct a security audit before using on mainnet with real funds.
 
-> ⚠️ **Instance storage** digunakan untuk menyimpan Vec escrow. Untuk skala besar, pertimbangkan refactor ke Persistent storage per-ID.
+> ⚠️ **Instance storage** is used to store the escrow Vec. For large-scale use, consider refactoring to Persistent storage per-ID.
 
 ---
 
 ## Roadmap
 
-- [ ] **Fee arbiter** — Arbiter mendapat persentase kecil sebagai kompensasi
-- [ ] **Partial release** — Lepas dana sebagian (misal: milestone-based payment)
-- [ ] **Multisig arbiter** — Keputusan memerlukan mayoritas dari panel arbiter
-- [ ] **On-chain messaging** — Buyer/seller bisa meninggalkan pesan/bukti
-- [ ] **Frontend Freighter** — Integrasi wallet Freighter untuk UI produksi
+- [ ] **Arbiter fee** — Arbiter receives a small percentage as compensation
+- [ ] **Partial release** — Release funds partially (e.g., milestone-based payments)
+- [ ] **Multisig arbiter** — Decisions require a majority from an arbiter panel
+- [ ] **On-chain messaging** — Buyer/seller can leave messages/evidence
+- [ ] **Freighter frontend** — Freighter wallet integration for a production UI
 
 ---
 
 ## Key Contracts
 - CABWM2ZFHEHLMNNGXKJ3WGWN6NIYBGSGWJCGQFAHTTEIRRL7OPX4JRDB
+
 ---
 
-## Lisensi
+## License
 
-MIT License — bebas digunakan, dimodifikasi, dan didistribusikan.
+MIT License — free to use, modify, and distribute.
