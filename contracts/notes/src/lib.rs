@@ -446,4 +446,5 @@ impl EscrowContract {
     }
 }
 
+#[cfg(test)]
 mod test;

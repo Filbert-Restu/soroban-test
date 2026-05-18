@@ -369,6 +369,10 @@ stellar contract invoke \
 
 ---
 
+## Key Contracts
+- CABWM2ZFHEHLMNNGXKJ3WGWN6NIYBGSGWJCGQFAHTTEIRRL7OPX4JRDB
+---
+
 ## Lisensi
 
 MIT License — bebas digunakan, dimodifikasi, dan didistribusikan.
