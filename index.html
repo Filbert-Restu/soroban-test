@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESCROW — Soroban Smart Contract</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0b0d;
+    --surface:   #111318;
+    --border:    #1e2230;
+    --border-hi: #2d3450;
+    --amber:     #f5a623;
+    --amber-dim: #a06b10;
+    --amber-glow:#f5a62322;
+    --green:     #2ecc71;
+    --green-dim: #1a6e3f;
+    --red:       #e74c3c;
+    --red-dim:   #7a1f18;
+    --blue:      #3498db;
+    --yellow:    #f1c40f;
+    --text:      #c8cedd;
+    --text-dim:  #5c6478;
+    --text-hi:   #edf0f7;
+    --mono:      'DM Mono', monospace;
+    --display:   'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid lines background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Amber glow top */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse, var(--amber-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    background: #0a0b0dcc;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-hi);
+  }
+  .logo span { color: var(--amber); }
+
+  .net-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border: 1px solid var(--border-hi);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .net-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── LAYOUT ── */
+  .app {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: calc(100vh - 65px);
+  }
+
+  /* ── SIDEBAR NAV ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 32px 0;
+    background: #0a0b0d88;
+  }
+
+  .nav-section {
+    padding: 0 24px;
+    margin-bottom: 32px;
+  }
+  .nav-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 13px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { color: var(--text-hi); background: var(--surface); border-color: var(--border); }
+  .nav-item.active {
+    color: var(--amber);
+    background: var(--amber-glow);
+    border-color: var(--amber-dim);
+  }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .wallet-box {
+    margin: 0 24px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .wallet-label { font-size: 10px; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; }
+  .wallet-addr {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+  .wallet-bal {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .wallet-bal strong { color: var(--text-hi); font-size: 15px; }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    padding: 32px 40px;
+    overflow-y: auto;
+  }
+
+  .page { display: none; animation: fadeIn 0.2s ease; }
+  .page.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-title {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-hi);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .page-sub {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 32px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--amber);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border-hi); }
+  .stat-card:hover::before { opacity: 1; }
+
+  .stat-label { font-size: 10px; letter-spacing: 1.5px; color: var(--text-dim); text-transform: uppercase; }
+  .stat-value {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-hi);
+    margin: 8px 0 4px;
+  }
+  .stat-note { font-size: 11px; color: var(--text-dim); }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-hi);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  /* ── FORM ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  input, textarea, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-hi);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-glow);
+  }
+  input::placeholder { color: var(--text-dim); }
+  select option { background: var(--surface); }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 22px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: #0a0b0d;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #ffc04a; transform: translateY(-1px); box-shadow: 0 4px 20px #f5a62344; }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-glow); }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--red-dim);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: #e74c3c22; }
+
+  .btn-success {
+    background: transparent;
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+  }
+  .btn-success:hover { background: #2ecc7122; }
+
+  .btn-sm { padding: 7px 14px; font-size: 11px; }
+
+  /* ── STATUS BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+
+  .badge-menunggu  { background: #2d3450; color: #8899cc; }
+  .badge-menunggu::before  { background: #8899cc; }
+  .badge-didanai   { background: #1a3a2a; color: var(--green); }
+  .badge-didanai::before   { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .badge-selesai   { background: #1a3050; color: var(--blue); }
+  .badge-selesai::before   { background: var(--blue); }
+  .badge-dikembalikan { background: #2d2010; color: var(--yellow); }
+  .badge-dikembalikan::before { background: var(--yellow); }
+  .badge-sengketa  { background: #3a1515; color: var(--red); }
+  .badge-sengketa::before  { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse 1s infinite; }
+
+  /* ── ESCROW TABLE ── */
+  .escrow-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .escrow-row {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 50px 1fr auto auto;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .escrow-row:hover { border-color: var(--border-hi); }
+
+  .escrow-id {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--amber);
+  }
+
+  .escrow-info { overflow: hidden; }
+  .escrow-desc {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-hi);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .escrow-meta { font-size: 11px; color: var(--text-dim); }
+  .escrow-meta span { margin-right: 12px; }
+
+  .escrow-amount {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .escrow-amount-val {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-hi);
+  }
+  .escrow-amount-token { font-size: 11px; color: var(--text-dim); }
+
+  /* ── MODAL ── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: #0a0b0d99;
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    border-radius: 12px;
+    width: 560px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-header {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--text-hi); }
+  .modal-close { cursor: pointer; color: var(--text-dim); font-size: 20px; line-height: 1; }
+  .modal-close:hover { color: var(--text-hi); }
+
+  .modal-body { padding: 24px 28px; }
+  .modal-footer {
+    padding: 16px 28px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+
+  /* ── DETAIL ROWS ── */
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 20px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { font-size: 11px; color: var(--text-dim); letter-spacing: 0.5px; flex-shrink: 0; }
+  .detail-val { font-size: 12px; color: var(--text-hi); text-align: right; word-break: break-all; }
+  .detail-addr { font-size: 10px; font-family: var(--mono); color: var(--amber); }
+
+  /* ── TIMELINE ── */
+  .timeline { padding: 16px 0; }
+  .timeline-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    margin-bottom: 18px;
+    position: relative;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 13px; top: 26px;
+    width: 1px; height: calc(100% + 4px);
+    background: var(--border);
+  }
+  .timeline-item:last-child::before { display: none; }
+
+  .tl-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--border-hi);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .tl-dot.done  { border-color: var(--green); background: var(--green-dim); }
+  .tl-dot.active { border-color: var(--amber); background: var(--amber-glow); }
+  .tl-dot.dispute { border-color: var(--red); background: var(--red-dim); }
+
+  .tl-content { padding-top: 4px; }
+  .tl-title { font-size: 13px; color: var(--text-hi); font-weight: 500; }
+  .tl-time  { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ── TOAST ── */
+  .toast-wrap {
+    position: fixed;
+    bottom: 30px; right: 30px;
+    z-index: 999;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px;
+    color: var(--text-hi);
+    animation: toastIn 0.3s ease;
+    min-width: 280px;
+    max-width: 380px;
+  }
+  .toast.success { border-color: var(--green-dim); }
+  .toast.error   { border-color: var(--red-dim); }
+  .toast-icon { font-size: 18px; }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 14px; opacity: 0.4; }
+  .empty-title { font-family: var(--display); font-size: 16px; color: var(--text); margin-bottom: 6px; }
+  .empty-sub { font-size: 12px; }
+
+  /* ── SEPARATOR ── */
+  .sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    display: flex; align-items: center; gap: 0;
+    overflow-x: auto;
+    padding: 20px 0;
+  }
+  .flow-step {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .flow-node {
+    width: 100px; padding: 10px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border-hi);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .flow-node.state-active { border-color: var(--amber); color: var(--amber); background: var(--amber-glow); }
+  .flow-node.state-done   { border-color: var(--green-dim); color: var(--green); }
+  .flow-node.state-dispute { border-color: var(--red-dim); color: var(--red); }
+  .flow-arrow {
+    color: var(--border-hi);
+    font-size: 18px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+  .flow-role { font-size: 9px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">ESC<span>ROW</span> <span style="font-size:12px;color:var(--text-dim);font-weight:400;">/ Soroban</span></div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="net-badge">
+      <div class="net-dot"></div>
+      Testnet
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="connectWallet()">⚡ Connect Freighter</button>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">Navigasi</div>
+      <div class="nav-item active" onclick="showPage('dashboard', this)">
+        <span class="nav-icon">◈</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('buat', this)">
+        <span class="nav-icon">＋</span> Buat Escrow
+      </div>
+      <div class="nav-item" onclick="showPage('daftar', this)">
+        <span class="nav-icon">≡</span> Semua Escrow
+      </div>
+      <div class="nav-item" onclick="showPage('sengketa', this)">
+        <span class="nav-icon">⚠</span> Sengketa
+        <span id="sengketa-count" style="margin-left:auto;background:var(--red-dim);color:var(--red);padding:1px 7px;border-radius:10px;font-size:10px;"></span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Aksi Cepat</div>
+      <div class="nav-item" onclick="showPage('danai', this)">
+        <span class="nav-icon">💰</span> Danai Escrow
+      </div>
+      <div class="nav-item" onclick="showPage('kelola', this)">
+        <span class="nav-icon">⚙</span> Kelola Escrow
+      </div>
+    </div>
+
+    <div class="wallet-box">
+      <div class="wallet-label">Wallet Terhubung</div>
+      <div class="wallet-addr" id="wallet-display">Belum terhubung</div>
+      <div class="wallet-bal" id="wallet-bal" style="display:none">
+        Saldo: <strong id="wallet-bal-val">0</strong> XLM
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub">Ringkasan aktivitas escrow Anda</div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total Escrow</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-note">Semua waktu</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Aktif / Didanai</div>
+          <div class="stat-value" id="stat-aktif" style="color:var(--green)">0</div>
+          <div class="stat-note">Dana terkunci</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Selesai</div>
+          <div class="stat-value" id="stat-selesai" style="color:var(--blue)">0</div>
+          <div class="stat-note">Berhasil</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sengketa</div>
+          <div class="stat-value" id="stat-sengketa" style="color:var(--red)">0</div>
+          <div class="stat-note">Perlu perhatian</div>
+        </div>
+      </div>
+
+      <!-- Alur Kerja -->
+      <div class="card">
+        <div class="card-title">⬡ Alur Kerja Escrow</div>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-node">📝<br>Buat</div>
+            <div class="flow-role">Buyer</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-node">💰<br>Danai</div>
+            <div class="flow-role">Buyer</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-node" style="border-color:var(--amber-dim);color:var(--text)">🔒<br>Terkunci</div>
+            <div class="flow-role">Contract</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-node state-done">✅<br>Lepas</div>
+            <div class="flow-role">Buyer / Arbiter</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;margin:0 6px;font-size:11px;color:var(--text-dim)">
+            <span>atau</span>
+          </div>
+          <div class="flow-step">
+            <div class="flow-node state-dispute">⚠<br>Sengketa</div>
+            <div class="flow-role">Buyer / Seller</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-node" style="border-color:#5c3060;color:#cc88dd">⚖<br>Arbitrase</div>
+            <div class="flow-role">Arbiter</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Escrow Terbaru -->
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between;">
+          <span>⬡ Escrow Terbaru</span>
+          <button class="btn btn-outline btn-sm" onclick="showPage('daftar', document.querySelector('[onclick*=daftar]'))">Lihat Semua</button>
+        </div>
+        <div class="escrow-list" id="recent-list"></div>
+      </div>
+    </div>
+
+    <!-- ── BUAT ESCROW ── -->
+    <div class="page" id="page-buat">
+      <div class="page-title">Buat Escrow Baru</div>
+      <div class="page-sub">Isi detail transaksi — dana belum dikunci di tahap ini</div>
+
+      <div class="card">
+        <div class="card-title">◈ Detail Pihak</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Alamat Buyer (Anda)</label>
+            <input type="text" id="f-buyer" placeholder="G..." value="GBUYER...DEMO1234">
+          </div>
+          <div class="form-group">
+            <label>Alamat Seller</label>
+            <input type="text" id="f-seller" placeholder="G...">
+          </div>
+          <div class="form-group full">
+            <label>Alamat Arbiter</label>
+            <input type="text" id="f-arbiter" placeholder="G... (pihak netral penyelesai sengketa)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">◈ Detail Transaksi</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Token</label>
+            <select id="f-token">
+              <option value="XLM">XLM — Stellar Lumens</option>
+              <option value="USDC">USDC — USD Coin</option>
+              <option value="AQUA">AQUA — Aquarius</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Jumlah</label>
+            <input type="number" id="f-jumlah" placeholder="100" min="1">
+          </div>
+          <div class="form-group">
+            <label>Deadline</label>
+            <input type="datetime-local" id="f-deadline">
+          </div>
+          <div class="form-group">
+            <label>Deskripsi</label>
+            <input type="text" id="f-deskripsi" placeholder="Pembayaran jasa desain logo...">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="resetForm()">Reset</button>
+        <button class="btn btn-primary" onclick="buatEscrow()">
+          ＋ Buat Escrow
+        </button>
+      </div>
+    </div>
+
+    <!-- ── DAFTAR ESCROW ── -->
+    <div class="page" id="page-daftar">
+      <div class="page-title">Semua Escrow</div>
+      <div class="page-sub">Klik escrow untuk melihat detail dan aksi</div>
+
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        <input type="text" id="search-input" placeholder="Cari deskripsi..." style="max-width:280px;" oninput="renderDaftar()">
+        <select id="filter-status" onchange="renderDaftar()" style="max-width:160px;">
+          <option value="">Semua Status</option>
+          <option value="Menunggu">Menunggu</option>
+          <option value="Didanai">Didanai</option>
+          <option value="Selesai">Selesai</option>
+          <option value="Dikembalikan">Dikembalikan</option>
+          <option value="Sengketa">Sengketa</option>
+        </select>
+      </div>
+
+      <div class="escrow-list" id="full-list"></div>
+    </div>
+
+    <!-- ── DANAI ── -->
+    <div class="page" id="page-danai">
+      <div class="page-title">Danai Escrow</div>
+      <div class="page-sub">Transfer token ke contract untuk mengunci dana</div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID Escrow</label>
+            <input type="number" id="d-id" placeholder="1" min="1">
+          </div>
+        </div>
+        <hr class="sep">
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" onclick="danaiEscrow()">💰 Danai Escrow</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── KELOLA ── -->
+    <div class="page" id="page-kelola">
+      <div class="page-title">Kelola Escrow</div>
+      <div class="page-sub">Lepas dana, refund, atau ajukan sengketa</div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID Escrow</label>
+            <input type="number" id="k-id" placeholder="1" min="1">
+          </div>
+          <div class="form-group">
+            <label>Alamat Caller (Anda)</label>
+            <input type="text" id="k-caller" placeholder="G...">
+          </div>
+        </div>
+        <hr class="sep">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-success" onclick="kelola('lepas')">✅ Lepas Dana ke Seller</button>
+          <button class="btn btn-outline" onclick="kelola('refund')">↩ Kembalikan ke Buyer</button>
+          <button class="btn btn-danger" onclick="kelola('sengketa')">⚠ Ajukan Sengketa</button>
+          <button class="btn btn-outline btn-sm" onclick="kelola('deadline')" style="margin-left:auto">⏰ Klaim Refund Deadline</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SENGKETA ── -->
+    <div class="page" id="page-sengketa">
+      <div class="page-title">Escrow Sengketa</div>
+      <div class="page-sub">Escrow yang memerlukan keputusan arbiter</div>
+      <div class="escrow-list" id="sengketa-list"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL DETAIL -->
+<div class="overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Detail Escrow</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ── STATE ──
+let escrows = [
+  {
+    id: 1,
+    buyer:   'GBUYER7TQPAX3KJCNKDEMO1234ABCDEF',
+    seller:  'GSELLER9MNXYZ5DEMO5678UVWXYZ',
+    arbiter: 'GARBITER2QRST9DEMOCOURTXYZ',
+    token:   'XLM',
+    jumlah:  250,
+    deskripsi: 'Pembayaran jasa pembuatan website portfolio',
+    deadline: Date.now() + 7 * 24 * 3600 * 1000,
+    status:  'Didanai',
+    created: Date.now() - 2 * 3600 * 1000,
+  },
+  {
+    id: 2,
+    buyer:   'GBUYER7TQPAX3KJCNKDEMO1234ABCDEF',
+    seller:  'GSELLER2ABCDEF9MNXYZ5DEMO',
+    arbiter: 'GARBITER2QRST9DEMOCOURTXYZ',
+    token:   'USDC',
+    jumlah:  1500,
+    deskripsi: 'Freelance desain UI/UX aplikasi mobile',
+    deadline: Date.now() + 14 * 24 * 3600 * 1000,
+    status:  'Menunggu',
+    created: Date.now() - 30 * 60 * 1000,
+  },
+  {
+    id: 3,
+    buyer:   'GBUYER2XYZDEMO5678UVWXYZABCD',
+    seller:  'GSELLER9MNXYZ5DEMO5678UVWXYZ',
+    arbiter: 'GARBITER2QRST9DEMOCOURTXYZ',
+    token:   'XLM',
+    jumlah:  80,
+    deskripsi: 'Pembelian domain dan hosting 1 tahun',
+    deadline: Date.now() - 3600 * 1000,
+    status:  'Sengketa',
+    created: Date.now() - 5 * 24 * 3600 * 1000,
+  },
+  {
+    id: 4,
+    buyer:   'GBUYER7TQPAX3KJCNKDEMO1234ABCDEF',
+    seller:  'GSELLER2ABCDEF9MNXYZ5DEMO',
+    arbiter: 'GARBITER2QRST9DEMOCOURTXYZ',
+    token:   'USDC',
+    jumlah:  500,
+    deskripsi: 'Konsultasi smart contract Soroban (5 sesi)',
+    deadline: Date.now() - 10 * 24 * 3600 * 1000,
+    status:  'Selesai',
+    created: Date.now() - 20 * 24 * 3600 * 1000,
+  },
+];
+
+let walletConnected = false;
+let nextId = 5;
+
+// ── UTILS ──
+function shortAddr(addr) {
+  if (!addr) return '—';
+  return addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function fmtDeadline(ts) {
+  const d = new Date(ts);
+  const now = Date.now();
+  const diff = d - now;
+  if (diff < 0) return `<span style="color:var(--red)">Sudah lewat</span>`;
+  const days = Math.floor(diff / 86400000);
+  const hrs  = Math.floor((diff % 86400000) / 3600000);
+  return `<span style="color:var(--green)">${days}h ${hrs}j lagi</span>`;
+}
+
+function badgeHtml(status) {
+  const map = {
+    'Menunggu':     'menunggu',
+    'Didanai':      'didanai',
+    'Selesai':      'selesai',
+    'Dikembalikan': 'dikembalikan',
+    'Sengketa':     'sengketa',
+  };
+  return `<span class="badge badge-${map[status]||'menunggu'}">${status}</span>`;
+}
+
+// ── NAVIGATION ──
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+
+  if (id === 'daftar')   renderDaftar();
+  if (id === 'sengketa') renderSengketa();
+  if (id === 'dashboard') updateStats();
+}
+
+// ── WALLET ──
+function connectWallet() {
+  walletConnected = true;
+  const addr = 'GBUYER7TQPAX3KJCNKDEMO1234ABCDEF';
+  document.getElementById('wallet-display').textContent = addr;
+  document.getElementById('wallet-bal').style.display = 'block';
+  document.getElementById('wallet-bal-val').textContent = '1,000.00';
+  document.getElementById('f-buyer').value = addr;
+  document.getElementById('k-caller').value = addr;
+  toast('Wallet terhubung', 'success');
+}
+
+// ── STATS ──
+function updateStats() {
+  document.getElementById('stat-total').textContent    = escrows.length;
+  document.getElementById('stat-aktif').textContent    = escrows.filter(e => e.status === 'Didanai').length;
+  document.getElementById('stat-selesai').textContent  = escrows.filter(e => e.status === 'Selesai').length;
+  document.getElementById('stat-sengketa').textContent = escrows.filter(e => e.status === 'Sengketa').length;
+
+  const sc = escrows.filter(e => e.status === 'Sengketa').length;
+  const el = document.getElementById('sengketa-count');
+  el.textContent = sc > 0 ? sc : '';
+
+  renderRecent();
+}
+
+// ── RENDER ESCROW ROW ──
+function escrowRowHtml(e) {
+  return `
+    <div class="escrow-row" onclick="openDetail(${e.id})">
+      <div class="escrow-id">#${e.id}</div>
+      <div class="escrow-info">
+        <div class="escrow-desc">${e.deskripsi}</div>
+        <div class="escrow-meta">
+          <span>👤 ${shortAddr(e.buyer)}</span>
+          <span>→ ${shortAddr(e.seller)}</span>
+          <span>⏰ ${fmtDate(e.deadline)}</span>
+        </div>
+      </div>
+      <div class="escrow-amount">
+        <div class="escrow-amount-val">${e.jumlah.toLocaleString('id-ID')}</div>
+        <div class="escrow-amount-token">${e.token}</div>
+      </div>
+      <div>${badgeHtml(e.status)}</div>
+    </div>
+  `;
+}
+
+function renderRecent() {
+  const el = document.getElementById('recent-list');
+  const recent = [...escrows].sort((a,b) => b.id - a.id).slice(0, 3);
+  el.innerHTML = recent.length
+    ? recent.map(escrowRowHtml).join('')
+    : emptyState('Belum ada escrow', 'Buat escrow pertama Anda');
+}
+
+function renderDaftar() {
+  const q  = document.getElementById('search-input').value.toLowerCase();
+  const st = document.getElementById('filter-status').value;
+  let data = escrows.filter(e => {
+    const matchQ  = !q  || e.deskripsi.toLowerCase().includes(q);
+    const matchSt = !st || e.status === st;
+    return matchQ && matchSt;
+  });
+  const el = document.getElementById('full-list');
+  el.innerHTML = data.length
+    ? [...data].sort((a,b) => b.id - a.id).map(escrowRowHtml).join('')
+    : emptyState('Tidak ada hasil', 'Coba ubah filter pencarian');
+}
+
+function renderSengketa() {
+  const el = document.getElementById('sengketa-list');
+  const data = escrows.filter(e => e.status === 'Sengketa');
+  el.innerHTML = data.length
+    ? data.map(escrowRowHtml).join('')
+    : emptyState('Tidak ada sengketa', 'Semua escrow berjalan lancar ✓');
+}
+
+function emptyState(title, sub) {
+  return `<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-title">${title}</div><div class="empty-sub">${sub}</div></div>`;
+}
+
+// ── DETAIL MODAL ──
+function openDetail(id) {
+  const e = escrows.find(x => x.id === id);
+  if (!e) return;
+
+  const timelineItems = buildTimeline(e);
+
+  document.getElementById('modal-title').innerHTML = `Escrow #${e.id} &nbsp; ${badgeHtml(e.status)}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="detail-row"><span class="detail-key">Deskripsi</span><span class="detail-val">${e.deskripsi}</span></div>
+    <div class="detail-row"><span class="detail-key">Buyer</span><span class="detail-val detail-addr">${e.buyer}</span></div>
+    <div class="detail-row"><span class="detail-key">Seller</span><span class="detail-val detail-addr">${e.seller}</span></div>
+    <div class="detail-row"><span class="detail-key">Arbiter</span><span class="detail-val detail-addr">${e.arbiter}</span></div>
+    <div class="detail-row"><span class="detail-key">Jumlah</span><span class="detail-val" style="color:var(--amber);font-family:var(--display);font-size:18px;font-weight:700">${e.jumlah.toLocaleString('id-ID')} ${e.token}</span></div>
+    <div class="detail-row"><span class="detail-key">Deadline</span><span class="detail-val">${fmtDate(e.deadline)} &nbsp; ${fmtDeadline(e.deadline)}</span></div>
+    <div class="detail-row"><span class="detail-key">Dibuat</span><span class="detail-val">${fmtDate(e.created)}</span></div>
+    <hr class="sep">
+    <div style="font-size:11px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;">Timeline</div>
+    <div class="timeline">${timelineItems}</div>
+  `;
+
+  const footer = buildFooter(e);
+  document.getElementById('modal-footer').innerHTML = footer;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function buildTimeline(e) {
+  const steps = ['Menunggu', 'Didanai'];
+  const isDone = ['Selesai', 'Dikembalikan'].includes(e.status);
+  const isSengketa = e.status === 'Sengketa';
+  const icons = { 'Menunggu':'📝', 'Didanai':'💰', 'Selesai':'✅', 'Dikembalikan':'↩', 'Sengketa':'⚠' };
+  const roles = { 'Menunggu':'Buyer membuat escrow', 'Didanai':'Buyer mengunci dana', 'Selesai':'Dana dikirim ke seller', 'Dikembalikan':'Dana kembali ke buyer', 'Sengketa':'Sengketa diajukan' };
+
+  let items = '';
+  const allSteps = ['Menunggu', 'Didanai'];
+  if (isSengketa) allSteps.push('Sengketa');
+  else if (isDone) allSteps.push(e.status);
+
+  const orderMap = { 'Menunggu':0,'Didanai':1,'Sengketa':2,'Selesai':2,'Dikembalikan':2 };
+  const cur = orderMap[e.status];
+
+  allSteps.forEach((s, i) => {
+    const pos = orderMap[s];
+    let cls = 'tl-dot';
+    if (pos < cur) cls += ' done';
+    else if (pos === cur) cls += (s === 'Sengketa' ? ' dispute' : ' active');
+    items += `
+      <div class="timeline-item">
+        <div class="${cls}">${icons[s]}</div>
+        <div class="tl-content">
+          <div class="tl-title">${s}</div>
+          <div class="tl-time">${roles[s]}</div>
+        </div>
+      </div>
+    `;
+  });
+  return items;
+}
+
+function buildFooter(e) {
+  if (e.status === 'Selesai' || e.status === 'Dikembalikan') {
+    return `<span style="color:var(--text-dim);font-size:12px;">Transaksi ini telah selesai.</span>`;
+  }
+  let btns = `<button class="btn btn-outline" onclick="closeModal()">Tutup</button>`;
+  if (e.status === 'Menunggu') {
+    btns += `<button class="btn btn-primary" onclick="quickAction(${e.id},'danai')">💰 Danai Sekarang</button>`;
+  }
+  if (e.status === 'Didanai') {
+    btns += `<button class="btn btn-danger btn-sm" onclick="quickAction(${e.id},'sengketa')">⚠ Sengketa</button>`;
+    btns += `<button class="btn btn-outline btn-sm" onclick="quickAction(${e.id},'refund')">↩ Refund</button>`;
+    btns += `<button class="btn btn-success" onclick="quickAction(${e.id},'lepas')">✅ Lepas Dana</button>`;
+  }
+  if (e.status === 'Sengketa') {
+    btns += `<button class="btn btn-outline btn-sm" onclick="quickAction(${e.id},'refund')">↩ Kembalikan ke Buyer</button>`;
+    btns += `<button class="btn btn-success" onclick="quickAction(${e.id},'lepas')">✅ Lepas ke Seller</button>`;
+  }
+  return btns;
+}
+
+function quickAction(id, type) {
+  const e = escrows.find(x => x.id === id);
+  if (!e) return;
+  const map = {
+    'danai':    { status:'Didanai',      msg:'Dana berhasil dikunci dalam escrow' },
+    'lepas':    { status:'Selesai',      msg:'Dana berhasil dilepas ke seller' },
+    'refund':   { status:'Dikembalikan', msg:'Dana dikembalikan ke buyer' },
+    'sengketa': { status:'Sengketa',     msg:'Sengketa diajukan — arbiter akan memutuskan' },
+  };
+  e.status = map[type].status;
+  updateStats();
+  closeModal();
+  toast(map[type].msg, type === 'sengketa' ? 'error' : 'success');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ── BUAT ESCROW ──
+function buatEscrow() {
+  const buyer   = document.getElementById('f-buyer').value.trim();
+  const seller  = document.getElementById('f-seller').value.trim();
+  const arbiter = document.getElementById('f-arbiter').value.trim();
+  const token   = document.getElementById('f-token').value;
+  const jumlah  = parseFloat(document.getElementById('f-jumlah').value);
+  const desc    = document.getElementById('f-deskripsi').value.trim();
+  const dl      = document.getElementById('f-deadline').value;
+
+  if (!seller || !arbiter || !jumlah || !desc || !dl) {
+    toast('Lengkapi semua field terlebih dahulu', 'error'); return;
+  }
+  if (jumlah <= 0) { toast('Jumlah harus lebih dari 0', 'error'); return; }
+
+  const escrow = {
+    id: nextId++,
+    buyer, seller, arbiter, token, jumlah,
+    deskripsi: desc,
+    deadline: new Date(dl).getTime(),
+    status: 'Menunggu',
+    created: Date.now(),
+  };
+  escrows.unshift(escrow);
+  updateStats();
+  resetForm();
+  toast(`Escrow #${escrow.id} berhasil dibuat`, 'success');
+  showPage('dashboard', document.querySelector('[onclick*=dashboard]'));
+}
+
+function resetForm() {
+  ['f-seller','f-arbiter','f-jumlah','f-deskripsi','f-deadline'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+// ── DANAI ──
+function danaiEscrow() {
+  const id = parseInt(document.getElementById('d-id').value);
+  const e  = escrows.find(x => x.id === id);
+  if (!e) { toast('Escrow tidak ditemukan', 'error'); return; }
+  if (e.status !== 'Menunggu') { toast('Escrow sudah didanai atau selesai', 'error'); return; }
+  e.status = 'Didanai';
+  updateStats();
+  toast(`Escrow #${id} berhasil didanai`, 'success');
+  document.getElementById('d-id').value = '';
+}
+
+// ── KELOLA ──
+function kelola(type) {
+  const id = parseInt(document.getElementById('k-id').value);
+  const e  = escrows.find(x => x.id === id);
+  if (!e) { toast('Escrow tidak ditemukan', 'error'); return; }
+
+  const validStatus = {
+    'lepas':    ['Didanai','Sengketa'],
+    'refund':   ['Didanai','Sengketa'],
+    'sengketa': ['Didanai'],
+    'deadline': ['Didanai'],
+  };
+
+  if (!validStatus[type].includes(e.status)) {
+    toast(`Aksi tidak valid untuk status: ${e.status}`, 'error'); return;
+  }
+
+  const map = {
+    'lepas':    { status:'Selesai',      msg:'Dana berhasil dilepas ke seller' },
+    'refund':   { status:'Dikembalikan', msg:'Dana dikembalikan ke buyer' },
+    'sengketa': { status:'Sengketa',     msg:'Sengketa diajukan — arbiter akan memutuskan' },
+    'deadline': { status:'Dikembalikan', msg:'Dana dikembalikan otomatis (deadline lewat)' },
+  };
+
+  if (type === 'deadline' && e.deadline > Date.now()) {
+    toast('Deadline belum lewat', 'error'); return;
+  }
+
+  e.status = map[type].status;
+  updateStats();
+  toast(map[type].msg, type === 'sengketa' ? 'error' : 'success');
+}
+
+// ── TOAST ──
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toast-wrap');
+  const icon = type === 'success' ? '✅' : '⚠';
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="toast-icon">${icon}</span><span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; el.style.transition = '0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  // set default deadline = 7 days from now
+  const dl = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+  document.getElementById('f-deadline').value = dl.toISOString().slice(0, 16);
+  updateStats();
+});
+</script>
+</body>
+</html>
